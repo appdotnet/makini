@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,7 +13,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-    "flag"
 )
 
 import "github.com/kylelemons/go-gypsy/yaml"
@@ -20,7 +20,7 @@ import "github.com/kylelemons/go-gypsy/yaml"
 const ADN_API_BASE = "https://alpha-api.app.net/stream/0/"
 
 var (
-    file = flag.String("config", "config.yaml", "YAML config file")
+	file = flag.String("config", "config.yaml", "YAML config file")
 )
 
 var user_id string
@@ -243,15 +243,15 @@ func getUserID() string {
 }
 
 func main() {
-    flag.Parse()
+	flag.Parse()
 
-    config, err := yaml.ReadFile(*file)
-    if err != nil {
-        log.Fatalf("Error loading config (%q): %s", *file, err)
-    }
+	config, err := yaml.ReadFile(*file)
+	if err != nil {
+		log.Fatalf("Error loading config (%q): %s", *file, err)
+	}
 
-    adn_user_access_token, _ = config.Get("tokens.user")
-    adn_app_access_token, _ = config.Get("tokens.app")
+	adn_user_access_token, _ = config.Get("tokens.user")
+	adn_app_access_token, _ = config.Get("tokens.app")
 
 	url := getStreamEndpoint()
 	user_id = getUserID()

@@ -23,9 +23,9 @@ var (
 	file = flag.String("config", "config.yaml", "YAML config file")
 )
 
-var user_id string
-var adn_app_access_token string
-var adn_user_access_token string
+var userID string
+var appAccessToken string
+var userAccessToken string
 
 type APIResponse struct {
 	Meta map[string]interface{}
@@ -76,9 +76,9 @@ func apiCall(method string, endpoint string, contentType string, body io.Reader,
 	var token string
 
 	if useAppToken {
-		token = adn_app_access_token
+		token = appAccessToken
 	} else {
-		token = adn_user_access_token
+		token = userAccessToken
 	}
 
 	req.Header.Add("Authorization", "BEARER "+token)
@@ -194,7 +194,7 @@ func logStream(in chan *APIResponse) {
 		if obj.Meta["type"] == "message" && obj.Meta["channel_type"] == "net.app.core.pm" {
 			if data, ok := obj.Data.(map[string]interface{}); ok {
 				if user, ok := data["user"].(map[string]interface{}); ok {
-					if user["id"] != user_id {
+					if user["id"] != userID {
 						log.Print("Got message: ", data["text"], " from ", user["username"])
 						msg := fmt.Sprintf("Hi, @%s! What's up?", user["username"])
 						reply(data["channel_id"].(string), msg)
@@ -237,9 +237,9 @@ func getUserID() string {
 
 	token := obj.Data.(map[string]interface{})
 	user := token["user"].(map[string]interface{})
-	user_id := user["id"].(string)
+	userID := user["id"].(string)
 
-	return user_id
+	return userID
 }
 
 func main() {
@@ -250,11 +250,11 @@ func main() {
 		log.Fatalf("Error loading config (%q): %s", *file, err)
 	}
 
-	adn_user_access_token, _ = config.Get("tokens.user")
-	adn_app_access_token, _ = config.Get("tokens.app")
+	userAccessToken, _ = config.Get("tokens.user")
+	appAccessToken, _ = config.Get("tokens.app")
 
 	url := getStreamEndpoint()
-	user_id = getUserID()
+	userID = getUserID()
 
 	bytes := make(chan []byte)
 	go consumeStream(url, bytes)

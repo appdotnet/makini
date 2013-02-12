@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/kylelemons/go-gypsy/yaml"
 	"log"
 	"makini/api"
 	"makini/stream"
-	"github.com/kylelemons/go-gypsy/yaml"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 
 var userID string
 
-func logStream(userClient *api.APIClient, in chan *api.APIResponse) {
+func processMessage(botClient *api.APIClient, in chan *api.APIResponse) {
 	for {
 		obj := <-in
 
@@ -25,7 +25,7 @@ func logStream(userClient *api.APIClient, in chan *api.APIResponse) {
 					if user["id"] != userID {
 						log.Print("Got message: ", data["text"], " from ", user["username"])
 						msg := fmt.Sprintf("Hi, @%s! What's up?", user["username"])
-						userClient.Reply(data["channel_id"].(string), msg)
+						botClient.Reply(data["channel_id"].(string), msg)
 					}
 				}
 			}
@@ -50,11 +50,6 @@ func main() {
 	url := appClient.GetStreamEndpoint("makini")
 	userID = userClient.GetUserID()
 
-	bytes := make(chan []byte)
-	go stream.ConsumeStream(url, bytes)
-
-	messages := make(chan *api.APIResponse)
-	go stream.UnmarshalStream(bytes, messages)
-
-	logStream(userClient, messages)
+	messages := stream.ProcessStream(url)
+	processMessage(userClient, messages)
 }

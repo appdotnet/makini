@@ -4,12 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"log"
+	"makini/api"
 	"net/http"
 	"time"
-	"makini/api"
 )
 
-func ConsumeStream(url string, msgChan chan []byte) {
+func consumeStream(url string, msgChan chan []byte) {
 	for {
 		res, err := http.Get(url)
 
@@ -36,7 +36,7 @@ func ConsumeStream(url string, msgChan chan []byte) {
 	}
 }
 
-func UnmarshalStream(in chan []byte, out chan *api.APIResponse) {
+func unmarshalStream(in chan []byte, out chan *api.APIResponse) {
 	for {
 		m := &api.APIResponse{}
 		err := json.Unmarshal(<-in, &m)
@@ -47,4 +47,14 @@ func UnmarshalStream(in chan []byte, out chan *api.APIResponse) {
 			out <- m
 		}
 	}
+}
+
+func ProcessStream(url string) chan *api.APIResponse {
+	bytes := make(chan []byte)
+	go consumeStream(url, bytes)
+
+	messages := make(chan *api.APIResponse)
+	go unmarshalStream(bytes, messages)
+
+	return messages
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/kylelemons/go-gypsy/yaml"
 	"log"
 	"makini/api"
@@ -30,14 +31,9 @@ func main() {
 	url := appClient.GetStreamEndpoint("makini")
 	listener.UserID = userClient.GetUserID()
 
-	_, err = listener.Register("^[a-z]+$", func(client *api.APIClient, message map[string]interface{}) bool {
-		client.Reply(message["channel_id"].(string), "Hey")
+	_, err = listener.Register("^send invite to ([-.+_a-zA-Z0-9@]+)$", func(message *listener.BotMessage) bool {
+		message.Reply(fmt.Sprintf("OK, I'll send an invite to %s.", message.Matches[1]))
 		return false
-	})
-
-	_, err = listener.Register("^[a-z]+$", func(client *api.APIClient, message map[string]interface{}) bool {
-		log.Print("AYO!")
-		return true
 	})
 
 	messages := stream.ProcessStream(url)

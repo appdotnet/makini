@@ -5,15 +5,42 @@ import (
 	"regexp"
 )
 
-type BotResponder func(client *api.APIClient, message map[string]interface{}) bool
+var listeners []*BotListener = []*BotListener{}
+var UserID string
+
+type BotResponder func(message *BotMessage) bool
 
 type BotListener struct {
 	Regexp    *regexp.Regexp
 	Responder BotResponder
 }
 
-var listeners []*BotListener = []*BotListener{}
-var UserID string
+type BotMessage struct {
+	Message   map[string]interface{}
+	BotClient *api.APIClient
+	Matches   []string
+	channelID string
+}
+
+func (message *BotMessage) Text() string {
+	return message.Message["text"].(string)
+}
+
+func (message *BotMessage) Reply(text string) {
+	message.BotClient.Reply(message.channelID, text)
+}
+
+func (message *BotMessage) Process() {
+	text := message.Text()
+	for _, listener := range listeners {
+		if matches := listener.Regexp.FindStringSubmatch(text); matches != nil {
+			message.Matches = matches
+			if listener.Responder(message) {
+				return
+			}
+		}
+	}
+}
 
 func Register(re string, responder BotResponder) (*BotListener, error) {
 	r, err := regexp.Compile(re)
@@ -27,17 +54,6 @@ func Register(re string, responder BotResponder) (*BotListener, error) {
 	return listener, nil
 }
 
-func Process(client *api.APIClient, message map[string]interface{}) {
-	text := string(message["text"].(string))
-	for _, listener := range listeners {
-		if listener.Regexp.MatchString(text) {
-			if listener.Responder(client, message) {
-				return
-			}
-		}
-	}
-}
-
 func ProcessMessages(botClient *api.APIClient, in chan *api.APIResponse) {
 	for {
 		obj := <-in
@@ -46,7 +62,12 @@ func ProcessMessages(botClient *api.APIClient, in chan *api.APIResponse) {
 			if data, ok := obj.Data.(map[string]interface{}); ok {
 				if user, ok := data["user"].(map[string]interface{}); ok {
 					if user["id"] != UserID {
-						Process(botClient, data)
+						message := &BotMessage{
+							Message: data,
+							BotClient: botClient,
+							channelID: data["channel_id"].(string),
+						}
+						message.Process()
 					}
 				}
 			}

@@ -2,36 +2,16 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/kylelemons/go-gypsy/yaml"
 	"log"
 	"makini/api"
+	"makini/listener"
 	"makini/stream"
 )
 
 var (
 	file = flag.String("config", "config.yaml", "YAML config file")
 )
-
-var userID string
-
-func processMessage(botClient *api.APIClient, in chan *api.APIResponse) {
-	for {
-		obj := <-in
-
-		if obj.Meta["type"] == "message" && obj.Meta["channel_type"] == "net.app.core.pm" {
-			if data, ok := obj.Data.(map[string]interface{}); ok {
-				if user, ok := data["user"].(map[string]interface{}); ok {
-					if user["id"] != userID {
-						log.Print("Got message: ", data["text"], " from ", user["username"])
-						msg := fmt.Sprintf("Hi, @%s! What's up?", user["username"])
-						botClient.Reply(data["channel_id"].(string), msg)
-					}
-				}
-			}
-		}
-	}
-}
 
 func main() {
 	flag.Parse()
@@ -48,8 +28,18 @@ func main() {
 	appClient := &api.APIClient{AccessToken: appToken}
 
 	url := appClient.GetStreamEndpoint("makini")
-	userID = userClient.GetUserID()
+	listener.UserID = userClient.GetUserID()
+
+	_, err = listener.Register("^[a-z]+$", func(client *api.APIClient, message map[string]interface{}) bool {
+		client.Reply(message["channel_id"].(string), "Hey")
+		return false
+	})
+
+	_, err = listener.Register("^[a-z]+$", func(client *api.APIClient, message map[string]interface{}) bool {
+		log.Print("AYO!")
+		return true
+	})
 
 	messages := stream.ProcessStream(url)
-	processMessage(userClient, messages)
+	listener.ProcessMessages(userClient, messages)
 }

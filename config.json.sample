@@ -1,0 +1,9 @@
+{
+    "adn": {
+        "client_id": "",
+        "client_secret": "",
+        "user_token": "",
+        "oauth_url_base": "https://account.app.net",
+        "api_url_base": "https://alpha-api.app.net"
+    }
+}

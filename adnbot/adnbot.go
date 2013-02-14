@@ -1,40 +1,74 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
-	"github.com/kylelemons/go-gypsy/yaml"
 	"log"
 	"makini/api"
 	"makini/listener"
 	"makini/stream"
+	"os"
 )
 
+type Config struct {
+	ADN struct {
+		TokenURLBase      string `json:"token_url_base"`
+		TokenHostOverride string `json:"token_host_override"`
+		APIURLBase        string `json:"api_url_base"`
+		APIHostOverride   string `json:"api_host_override"`
+		StreamURLOverride string `json:"stream_url_override"`
+		ClientID          string `json:"client_id"`
+		ClientSecret      string `json:"client_secret"`
+		UserID            string `json:"user_id"`
+		StreamKey         string `json:"stream_key"`
+	} `json:"adn"`
+}
+
 var (
-	file = flag.String("config", "config.yaml", "YAML config file")
+	file = flag.String("config", "config.json", "JSON config file")
 )
 
 func main() {
 	flag.Parse()
 
-	config, err := yaml.ReadFile(*file)
+	file, err := os.Open(*file)
 	if err != nil {
 		log.Fatalf("Error loading config (%q): %s", *file, err)
 	}
 
-	userToken, _ := config.Get("tokens.user")
-	appToken, _ := config.Get("tokens.app")
+	decoder := json.NewDecoder(file)
+	var config Config
+	if err = decoder.Decode(&config); err != nil {
+		log.Fatalf("Error decoding config: %s", err)
+	}
 
-	userClient := &api.APIClient{AccessToken: userToken}
-	appClient := &api.APIClient{AccessToken: appToken}
+	api.OAuthURLBase = config.ADN.OAuthURLBase
+	api.APIURLBase = config.ADN.APIURLBase
+	api.ClientID = config.ADN.ClientID
+	api.ClientSecret = config.ADN.ClientSecret
 
-	url := appClient.GetStreamEndpoint("makini")
+	userClient, err := api.GetToken(map[string]string{
+		"grant_type": "xyx_mxml_internal_implicit_token",
+		"user_id":    config.ADN.UserID,
+		"scopes":     "messages",
+	})
+
+	userClient := &api.APIClient{AccessToken: config.ADN.UserToken}
 	listener.UserID = userClient.GetUserID()
 
-	_, err = listener.Register("^send invite to ([-.+_a-zA-Z0-9@]+)$", func(message *listener.BotMessage) bool {
-		message.Reply(fmt.Sprintf("OK, I'll send an invite to %s.", message.Matches[1]))
-		return false
+	appClient, err := api.GetToken(map[string]string{
+		"grant_type": "client_credentials",
 	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Print(appClient)
+
+	url := appClient.GetStreamEndpoint(config.ADN.StreamKey)
+
+	log.Print("SUP:", url)
 
 	messages := stream.ProcessStream(url)
 	listener.ProcessMessages(userClient, messages)

@@ -18,8 +18,10 @@ func consumeStream(url string, msgChan chan []byte) {
 
 			for {
 				line, err := buf.ReadBytes('\n')
+				length := len(line)
 
-				if err == nil {
+				if err == nil && length >= 2 {
+					line = line[:length-2]
 					if len(line) > 0 {
 						msgChan <- line
 					}
@@ -39,10 +41,11 @@ func consumeStream(url string, msgChan chan []byte) {
 func unmarshalStream(in chan []byte, out chan *api.APIResponse) {
 	for {
 		m := &api.APIResponse{}
-		err := json.Unmarshal(<-in, &m)
+		msg := <-in
+		err := json.Unmarshal(msg, &m)
 
 		if err != nil {
-			log.Print("Error decoding: ", err)
+			log.Print("Error decoding: ", msg, err)
 		} else {
 			out <- m
 		}

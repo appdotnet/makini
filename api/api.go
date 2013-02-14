@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,9 +11,13 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
-const ADN_API_BASE = "https://alpha-api.app.net/stream/0/"
+var APIURLBase string
+var OAuthURLBase string
+var ClientID string
+var ClientSecret string
 
 type APIClient struct {
 	AccessToken string
@@ -21,6 +26,11 @@ type APIClient struct {
 type APIResponse struct {
 	Meta map[string]interface{}
 	Data interface{}
+}
+
+type AuthResponse struct {
+	AccessToken string `json:"access_token"`
+	Error       string
 }
 
 type APIError struct {
@@ -41,8 +51,83 @@ func (e APIError) Error() string {
 	return e.msg
 }
 
+type User struct {
+	APIClient
+	LastFetch time.Time
+	APIObject map[string]interface{}
+}
+
+func (user *User) UserID() string {
+	return user.APIObject["id"].(string)
+}
+
+func (user *User) Username() string {
+	return user.APIObject["username"].(string)
+}
+
+func (user *User) IsExpired() bool {
+	return time.Since(user.LastFetch) > 10*time.Minute
+}
+
+var userCache = make(map[string]*User)
+
+func GetUser(apiObject map[string]interface{}) (user *User) {
+	user_id := apiObject["id"].(string)
+	user, ok := userCache[user_id]
+	if ok && !user.IsExpired() {
+		return user
+	}
+
+	// go get a token and create/update user object
+
+	return user
+}
+
+func GetToken(params map[string]string) (result *APIClient, err error) {
+	endpoint := OAuthURLBase + "/oauth/access_token"
+
+	values := make(url.Values)
+
+	if params != nil {
+		for key, val := range params {
+			values.Set(key, val)
+		}
+	}
+
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(values.Encode()))
+	if err != nil {
+		return nil, err
+	}
+
+	req.SetBasicAuth(ClientID, ClientSecret)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	rbody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	m := &AuthResponse{}
+
+	err = json.Unmarshal(rbody, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	if m.Error != "" {
+		return nil, errors.New(m.Error)
+	}
+
+	return &APIClient{AccessToken: m.AccessToken}, nil
+}
+
 func (client *APIClient) apiCall(method string, endpoint string, contentType string, body io.Reader, params map[string]string) (result *APIResponse, err error) {
-	endpoint = ADN_API_BASE + endpoint
+	endpoint = APIURLBase + endpoint
 
 	u, err := url.Parse(endpoint)
 	if err != nil {
@@ -84,7 +169,6 @@ func (client *APIClient) apiCall(method string, endpoint string, contentType str
 
 	err = json.Unmarshal(rbody, &m)
 	if err != nil {
-		log.Print("asdf 3", string(rbody))
 		return nil, err
 	}
 
@@ -119,7 +203,7 @@ func (client *APIClient) PostJSON(endpoint string, params map[string]string, pos
 }
 
 func (client *APIClient) GetUserID() string {
-	obj, err := client.Get("token", nil)
+	obj, err := client.Get("/stream/0/token", nil)
 	if err != nil {
 		log.Fatal("Error getting token: ", err)
 	}
@@ -131,14 +215,10 @@ func (client *APIClient) GetUserID() string {
 	return userID
 }
 
-func (client *APIClient) Reply(channelID string, text string) {
-	endpoint := fmt.Sprintf("channels/%s/messages", channelID)
+func (client *APIClient) Reply(channelID string, contents map[string]interface{}) {
+	endpoint := fmt.Sprintf("/stream/0/channels/%s/messages", channelID)
 
-	body := map[string]string{
-		"text": text,
-	}
-
-	if _, err := client.PostJSON(endpoint, nil, body); err != nil {
+	if _, err := client.PostJSON(endpoint, nil, contents); err != nil {
 		log.Print("Error replying in channel ", channelID, ": ", err)
 	}
 }
@@ -148,7 +228,7 @@ func (client *APIClient) GetStreamEndpoint(key string) string {
 		"key": key,
 	}
 
-	obj, err := client.Get("streams", params)
+	obj, err := client.Get("/stream/0/streams", params)
 	if err != nil {
 		log.Fatal("Error getting stream endpoint: ", err)
 	}

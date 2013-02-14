@@ -3,6 +3,7 @@ package listener
 import (
 	"makini/api"
 	"regexp"
+	"strings"
 )
 
 var listeners []*BotListener = []*BotListener{}
@@ -19,21 +20,25 @@ type BotMessage struct {
 	Message   map[string]interface{}
 	BotClient *api.APIClient
 	Matches   []string
+	Text      string
 	channelID string
 }
 
-func (message *BotMessage) Text() string {
-	return message.Message["text"].(string)
+func (message *BotMessage) Reply(text string) {
+	contents := map[string]interface{}{
+		"text": text,
+	}
+
+	message.ReplyJSON(contents)
 }
 
-func (message *BotMessage) Reply(text string) {
-	message.BotClient.Reply(message.channelID, text)
+func (message *BotMessage) ReplyJSON(contents map[string]interface{}) {
+	message.BotClient.Reply(message.channelID, contents)
 }
 
 func (message *BotMessage) Process() {
-	text := message.Text()
 	for _, listener := range listeners {
-		if matches := listener.Regexp.FindStringSubmatch(text); matches != nil {
+		if matches := listener.Regexp.FindStringSubmatch(message.Text); matches != nil {
 			message.Matches = matches
 			if listener.Responder(message) {
 				return
@@ -63,8 +68,9 @@ func ProcessMessages(botClient *api.APIClient, in chan *api.APIResponse) {
 				if user, ok := data["user"].(map[string]interface{}); ok {
 					if user["id"] != UserID {
 						message := &BotMessage{
-							Message: data,
+							Message:   data,
 							BotClient: botClient,
+							Text:      strings.TrimSpace(data["text"].(string)),
 							channelID: data["channel_id"].(string),
 						}
 						message.Process()

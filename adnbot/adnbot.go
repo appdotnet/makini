@@ -20,6 +20,7 @@ type Config struct {
 		ClientID          string `json:"client_id"`
 		ClientSecret      string `json:"client_secret"`
 		UserID            string `json:"user_id"`
+		Username          string `json:"username"` // temp
 		StreamKey         string `json:"stream_key"`
 	} `json:"adn"`
 }
@@ -42,18 +43,24 @@ func main() {
 		log.Fatalf("Error decoding config: %s", err)
 	}
 
-	api.OAuthURLBase = config.ADN.OAuthURLBase
+	api.TokenURLBase = config.ADN.TokenURLBase
+	api.TokenHostOverride = config.ADN.TokenHostOverride
 	api.APIURLBase = config.ADN.APIURLBase
+	api.APIHostOverride = config.ADN.APIHostOverride
 	api.ClientID = config.ADN.ClientID
 	api.ClientSecret = config.ADN.ClientSecret
 
 	userClient, err := api.GetToken(map[string]string{
 		"grant_type": "xyx_mxml_internal_implicit_token",
 		"user_id":    config.ADN.UserID,
-		"scopes":     "messages",
+		"username":   config.ADN.Username,
+		"scope":      "messages",
 	})
 
-	userClient := &api.APIClient{AccessToken: config.ADN.UserToken}
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	listener.UserID = userClient.GetUserID()
 
 	appClient, err := api.GetToken(map[string]string{
@@ -64,12 +71,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Print(appClient)
+	stream_endpoint := appClient.GetStreamEndpoint(config.ADN.StreamKey)
 
-	url := appClient.GetStreamEndpoint(config.ADN.StreamKey)
+	// TODO: rewrite stream endpoint
 
-	log.Print("SUP:", url)
-
-	messages := stream.ProcessStream(url)
+	messages := stream.ProcessStream(stream_endpoint)
 	listener.ProcessMessages(userClient, messages)
 }

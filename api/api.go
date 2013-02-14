@@ -14,10 +14,14 @@ import (
 	"time"
 )
 
-var APIURLBase string
-var OAuthURLBase string
-var ClientID string
-var ClientSecret string
+var (
+	TokenURLBase      string
+	TokenHostOverride string
+	APIURLBase        string
+	APIHostOverride   string
+	ClientID          string
+	ClientSecret      string
+)
 
 type APIClient struct {
 	AccessToken string
@@ -84,7 +88,7 @@ func GetUser(apiObject map[string]interface{}) (user *User) {
 }
 
 func GetToken(params map[string]string) (result *APIClient, err error) {
-	endpoint := OAuthURLBase + "/oauth/access_token"
+	endpoint := TokenURLBase + "/oauth/access_token"
 
 	values := make(url.Values)
 
@@ -101,6 +105,10 @@ func GetToken(params map[string]string) (result *APIClient, err error) {
 
 	req.SetBasicAuth(ClientID, ClientSecret)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	if TokenHostOverride != "" {
+		req.Host = TokenHostOverride
+	}
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -153,6 +161,10 @@ func (client *APIClient) apiCall(method string, endpoint string, contentType str
 
 	if method == "POST" {
 		req.Header.Set("Content-Type", contentType)
+	}
+
+	if APIHostOverride != "" {
+		req.Host = APIHostOverride
 	}
 
 	res, err := http.DefaultClient.Do(req)

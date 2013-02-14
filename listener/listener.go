@@ -1,6 +1,7 @@
 package listener
 
 import (
+	"log"
 	"makini/api"
 	"regexp"
 	"strings"
@@ -62,6 +63,8 @@ func Register(re string, responder BotResponder) (*BotListener, error) {
 func ProcessMessages(botClient *api.APIClient, in chan *api.APIResponse) {
 	for {
 		obj := <-in
+
+		log.Printf("Got message: %s", obj)
 
 		if obj.Meta["type"] == "message" && obj.Meta["channel_type"] == "net.app.core.pm" {
 			if data, ok := obj.Data.(map[string]interface{}); ok {

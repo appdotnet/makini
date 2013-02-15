@@ -20,7 +20,6 @@ type Config struct {
 		ClientID          string `json:"client_id"`
 		ClientSecret      string `json:"client_secret"`
 		UserID            string `json:"user_id"`
-		Username          string `json:"username"` // temp
 		StreamKey         string `json:"stream_key"`
 	} `json:"adn"`
 }
@@ -50,18 +49,15 @@ func main() {
 	api.ClientID = config.ADN.ClientID
 	api.ClientSecret = config.ADN.ClientSecret
 
-	userClient, err := api.GetToken(map[string]string{
-		"grant_type": "xyx_mxml_internal_implicit_token",
-		"user_id":    config.ADN.UserID,
-		"username":   config.ADN.Username,
-		"scope":      "messages",
-	})
+	user, err := api.GetUserByID(config.ADN.UserID, []string{
+		"messages",
+	}, nil)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	listener.UserID = userClient.GetUserID()
+	listener.UserID = user.UserID()
 
 	appClient, err := api.GetToken(map[string]string{
 		"grant_type": "client_credentials",
@@ -76,5 +72,5 @@ func main() {
 	// TODO: rewrite stream endpoint
 
 	messages := stream.ProcessStream(stream_endpoint)
-	listener.ProcessMessages(userClient, messages)
+	listener.ProcessMessages(user, messages)
 }

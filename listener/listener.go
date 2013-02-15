@@ -19,7 +19,8 @@ type BotListener struct {
 
 type BotMessage struct {
 	Message   map[string]interface{}
-	BotClient *api.APIClient
+	BotUser   *api.User
+	Sender    *api.User
 	Matches   []string
 	Text      string
 	channelID string
@@ -34,7 +35,7 @@ func (message *BotMessage) Reply(text string) {
 }
 
 func (message *BotMessage) ReplyJSON(contents map[string]interface{}) {
-	message.BotClient.Reply(message.channelID, contents)
+	message.BotUser.Reply(message.channelID, contents)
 }
 
 func (message *BotMessage) Process() {
@@ -60,22 +61,35 @@ func Register(re string, responder BotResponder) (*BotListener, error) {
 	return listener, nil
 }
 
-func ProcessMessages(botClient *api.APIClient, in chan *api.APIResponse) {
+func GetUser(apiObject map[string]interface{}) (*api.User, error) {
+	// stadnard scopes
+	return api.GetUser(apiObject, nil)
+}
+
+func ProcessMessages(bot *api.User, in chan *api.APIResponse) {
 	for {
 		obj := <-in
-
-		log.Printf("Got message: %s", obj)
 
 		if obj.Meta["type"] == "message" && obj.Meta["channel_type"] == "net.app.core.pm" {
 			if data, ok := obj.Data.(map[string]interface{}); ok {
 				if user, ok := data["user"].(map[string]interface{}); ok {
 					if user["id"] != UserID {
+						sender, err := GetUser(user)
+						if err != nil {
+							log.Printf("Error grabbing user_id=%s: %s", user["id"], err)
+							continue
+						}
+
 						message := &BotMessage{
 							Message:   data,
-							BotClient: botClient,
+							BotUser:   bot,
+							Sender:    sender,
 							Text:      strings.TrimSpace(data["text"].(string)),
 							channelID: data["channel_id"].(string),
 						}
+
+						log.Printf("@%s: %s", sender.Username(), message.Text)
+
 						message.Process()
 					}
 				}

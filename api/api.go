@@ -75,16 +75,49 @@ func (user *User) IsExpired() bool {
 
 var userCache = make(map[string]*User)
 
-func GetUser(apiObject map[string]interface{}) (user *User) {
-	user_id := apiObject["id"].(string)
-	user, ok := userCache[user_id]
+func GetUser(apiObject map[string]interface{}, scopes []string) (user *User, err error) {
+	return GetUserByID(apiObject["id"].(string), scopes, apiObject)
+}
+
+func GetUserByID(userID string, scopes []string, apiObject map[string]interface{}) (user *User, err error) {
+	user, ok := userCache[userID]
 	if ok && !user.IsExpired() {
-		return user
+		return user, nil
+	}
+
+	if !ok {
+		user = &User{}
 	}
 
 	// go get a token and create/update user object
 
-	return user
+	tokenParams := map[string]string{
+		"grant_type": "xyx_mxml_internal_implicit_token",
+		"user_id":    userID,
+	}
+
+	if len(scopes) > 0 {
+		tokenParams["scope"] = strings.Join(scopes, ",")
+	}
+
+	userClient, err := GetToken(tokenParams)
+
+	if err != nil {
+		return nil, err
+	}
+
+	user.AccessToken = userClient.AccessToken
+
+	if apiObject != nil {
+		user.APIObject = apiObject
+		user.LastFetch = time.Now()
+	} else {
+		user.Refresh()
+	}
+
+	userCache[user.UserID()] = user
+
+	return user, nil
 }
 
 func GetToken(params map[string]string) (result *APIClient, err error) {
@@ -214,17 +247,16 @@ func (client *APIClient) PostJSON(endpoint string, params map[string]string, pos
 	return client.apiCall("POST", endpoint, "application/json", bytes.NewBuffer(body), params)
 }
 
-func (client *APIClient) GetUserID() string {
-	obj, err := client.Get("/stream/0/token", nil)
+func (user *User) Refresh() (err error) {
+	obj, err := user.Get("/stream/0/token", nil)
 	if err != nil {
-		log.Fatal("Error getting token: ", err)
+		return err
 	}
 
-	token := obj.Data.(map[string]interface{})
-	user := token["user"].(map[string]interface{})
-	userID := user["id"].(string)
+	user.APIObject = obj.Data.(map[string]interface{})["user"].(map[string]interface{})
+	user.LastFetch = time.Now()
 
-	return userID
+	return nil
 }
 
 func (client *APIClient) Reply(channelID string, contents map[string]interface{}) {
@@ -257,4 +289,20 @@ func (client *APIClient) GetStreamEndpoint(key string) string {
 	}
 
 	return ""
+}
+
+func (user *User) GetInvite() (string, error) {
+	params := map[string]string{
+		// empty post body :(
+		"foo": "bar",
+	}
+
+	obj, err := user.Post("/stream/0/users/invite", nil, params)
+	if err != nil {
+		return "", err
+	}
+
+	inviteURL := obj.Data.(map[string]interface{})["url"].(string)
+
+	return inviteURL, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"fmt"
 	"makini/listener"
 )
@@ -27,8 +28,14 @@ var annotation = []interface{}{
 }
 
 func init() {
-	listener.Register("^send invite to ([-.+_a-zA-Z0-9@]+)$", func(message *listener.BotMessage) bool {
-		message.Reply(fmt.Sprintf("OK, I'll send an invite to %s.", message.Matches[1]))
+	listener.Register("^invite$", func(message *listener.BotMessage) bool {
+		inviteURL, err := message.Sender.GetInvite()
+		if err != nil {
+			log.Printf("WTF: %s", err)
+		}
+
+		message.Reply(fmt.Sprintf("Here's your invite: %s", inviteURL))
+
 		return false
 	})
 

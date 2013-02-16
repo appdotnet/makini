@@ -7,6 +7,7 @@ import (
 	"makini/api"
 	"makini/listener"
 	"makini/stream"
+	"net/url"
 	"os"
 )
 
@@ -69,7 +70,22 @@ func main() {
 
 	stream_endpoint := appClient.GetStreamEndpoint(config.ADN.StreamKey)
 
-	// TODO: rewrite stream endpoint
+	if config.ADN.StreamURLOverride != "" {
+		stream_url, err := url.Parse(stream_endpoint)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		override_url, err := url.Parse(config.ADN.StreamURLOverride)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// current stream URLs only need to match on path
+		override_url.Path = stream_url.Path
+
+		stream_endpoint = override_url.String()
+	}
 
 	messages := stream.ProcessStream(stream_endpoint)
 	listener.ProcessMessages(user, messages)

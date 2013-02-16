@@ -1,10 +1,11 @@
 package main
 
 import (
-	"log"
 	"fmt"
-	"strings"
+	"log"
+	"makini/api"
 	"makini/listener"
+	"strings"
 )
 
 var annotation = []interface{}{
@@ -30,7 +31,7 @@ var annotation = []interface{}{
 
 func formatRemainingCount(remainingCount int) string {
 	if remainingCount < 1 {
-		return "You have no invites available at the moment."
+		return "You have no more invites available at the moment."
 	} else if remainingCount == 1 {
 		return "You've got one invite left."
 	}
@@ -55,6 +56,13 @@ func init() {
 		inviteURL, remainingCount, err := message.Sender.GetInvite("")
 		if err != nil {
 			log.Printf("Error getting invite for %s: %s", message.Sender.Username(), err)
+
+			if meta, ok := err.(*api.APIMeta); ok && meta.ErrorSlug == "invites_depleted" {
+				message.Reply("Sorry, it looks like you don't have any invites available.")
+
+				return true
+			}
+
 			message.Reply("Sorry, I couldn't get an invite for you.")
 
 			return true
@@ -77,7 +85,16 @@ func init() {
 		_, remainingCount, err := message.Sender.GetInvite(email)
 		if err != nil {
 			log.Printf("Error getting invite for %s: %s", message.Sender.Username(), err)
+
+			if meta, ok := err.(*api.APIMeta); ok && meta.ErrorSlug == "invites_depleted" {
+				message.Reply("Sorry, it looks like you don't have any invites available.")
+
+				return true
+			}
+
 			message.Reply("Sorry, I couldn't get an invite for you.")
+
+			return true
 		}
 
 		message.Reply(fmt.Sprintf("OK, I sent an email to %s. %s", email, formatRemainingCount(remainingCount)))

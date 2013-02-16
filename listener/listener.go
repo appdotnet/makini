@@ -70,7 +70,7 @@ func ProcessMessages(bot *api.User, in chan *api.APIResponse) {
 	for {
 		obj := <-in
 
-		if obj.Meta["type"] == "message" && obj.Meta["channel_type"] == "net.app.core.pm" {
+		if obj.Meta.Type == "message" && obj.Meta.ChannelType == "net.app.core.pm" {
 			if data, ok := obj.Data.(map[string]interface{}); ok {
 				if user, ok := data["user"].(map[string]interface{}); ok {
 					if user["id"] != UserID {

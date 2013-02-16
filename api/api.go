@@ -28,7 +28,7 @@ type APIClient struct {
 }
 
 type APIResponse struct {
-	Meta map[string]interface{}
+	Meta *APIMeta
 	Data interface{}
 }
 
@@ -37,30 +37,29 @@ type AuthResponse struct {
 	Error       string
 }
 
-type APIError struct {
-	msg string
+type APIMeta struct {
+	ErrorMessage string `json:"error_message"`
+	ErrorSlug    string `json:"error_slug"`
+
+	// Streaming
+	Type        string `json:"type"`
+	ChannelType string `json:"channel_type"`
 }
 
 func (r *APIResponse) IsError() bool {
-	_, ok := r.Meta["error_message"]
-
-	return ok
+	return r.Meta.ErrorMessage != ""
 }
 
-func (r *APIResponse) GetError() *APIError {
-	return &APIError{msg: r.Meta["error_message"].(string)}
-}
-
-func (e APIError) Error() string {
-	return e.msg
+func (meta *APIMeta) Error() string {
+	return meta.ErrorMessage
 }
 
 type User struct {
 	APIClient
 	LastFetch time.Time
 	APIObject map[string]interface{}
-	Flags struct {
-		SentHelp bool
+	Flags     struct {
+		SentHelp  bool
 		SentIntro bool
 	}
 }
@@ -222,7 +221,7 @@ func (client *APIClient) apiCall(method string, endpoint string, contentType str
 	}
 
 	if m.IsError() {
-		return nil, error(m.GetError())
+		return nil, error(m.Meta)
 	}
 
 	return m, nil

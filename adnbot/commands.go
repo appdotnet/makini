@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"fmt"
+	"strings"
 	"makini/listener"
 )
 
@@ -27,16 +28,61 @@ var annotation = []interface{}{
 	},
 }
 
+func formatRemainingCount(remainingCount int) string {
+	if remainingCount < 1 {
+		return "You have no invites available at the moment."
+	} else if remainingCount == 1 {
+		return "You've got one invite left."
+	}
+
+	return fmt.Sprintf("You have %d invites available.", remainingCount)
+}
+
 func init() {
-	listener.Register("^invite$", func(message *listener.BotMessage) bool {
-		inviteURL, err := message.Sender.GetInvite()
+	listener.Register("^(?:what'?s|get )?(?:my )?invite(?: count)?\\??$", func(message *listener.BotMessage) bool {
+		remainingCount, err := message.Sender.GetInviteCount()
 		if err != nil {
-			log.Printf("WTF: %s", err)
+			log.Printf("Error getting invite count for %s: %s", message.Sender.Username(), err)
+			message.Reply("Sorry, I had trouble getting your invite count. Please try later.")
 		}
 
-		message.Reply(fmt.Sprintf("Here's your invite: %s", inviteURL))
+		message.Reply(formatRemainingCount(remainingCount))
 
-		return false
+		return true
+	})
+
+	listener.Register("^(?:get|give) (?:me )?(?:an )?invite(?: .+)?$", func(message *listener.BotMessage) bool {
+		inviteURL, remainingCount, err := message.Sender.GetInvite("")
+		if err != nil {
+			log.Printf("Error getting invite for %s: %s", message.Sender.Username(), err)
+			message.Reply("Sorry, I couldn't get an invite for you.")
+
+			return true
+		}
+
+		message.Reply(fmt.Sprintf("Here's the link for your invite: %s. %s", inviteURL, formatRemainingCount(remainingCount)))
+
+		return true
+	})
+
+	listener.Register("^send (?:an )?invite (?:to )?(\\S+)?$", func(message *listener.BotMessage) bool {
+		email := message.Matches[1]
+		if !strings.Contains(email, "@") {
+			log.Printf("Invalid email from %s: %s", message.Sender.Username(), email)
+			message.Reply(fmt.Sprintf("Hmm. %s doesn't look like an email address to me.", email))
+
+			return true
+		}
+
+		_, remainingCount, err := message.Sender.GetInvite(email)
+		if err != nil {
+			log.Printf("Error getting invite for %s: %s", message.Sender.Username(), err)
+			message.Reply("Sorry, I couldn't get an invite for you.")
+		}
+
+		message.Reply(fmt.Sprintf("OK, I sent an email to %s. %s", email, formatRemainingCount(remainingCount)))
+
+		return true
 	})
 
 	listener.Register("^!mindblown$", func(message *listener.BotMessage) bool {
@@ -47,6 +93,39 @@ func init() {
 
 		message.ReplyJSON(body)
 
-		return false
+		return true
+	})
+
+	listener.Register("^help computer$", func(message *listener.BotMessage) bool {
+		body := map[string]interface{}{
+			"text": "I'm a computer. Stop all the downloadin'. Err... I mean, uh, that you should probably email my human friends at support@app.net for more help.",
+		}
+
+		message.ReplyJSON(body)
+
+		return true
+	})
+
+	listener.Register("^help( .+)?$", func(message *listener.BotMessage) bool {
+		body := map[string]interface{}{
+			"text": "Try asking me to 'send invite to <email>' or 'get invite link' or ask me 'invite count?' and I'll try to help. For more complex questions, email my human friends at support@app.net.",
+		}
+
+		message.ReplyJSON(body)
+
+		return true
+	})
+
+	listener.Register(".", func(message *listener.BotMessage) bool {
+		if !message.Sender.Flags.SentIntro {
+			body := map[string]interface{}{
+				"text": "Hi, I'm @adn, a bot who's here to help you with your App.net account. Try asking me to 'send invite to <email>' or 'get invite link' or ask me 'invite count?' and I'll try to help.",
+			}
+
+			message.ReplyJSON(body)
+			message.Sender.Flags.SentIntro = true
+		}
+
+		return true
 	})
 }

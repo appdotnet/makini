@@ -59,6 +59,10 @@ type User struct {
 	APIClient
 	LastFetch time.Time
 	APIObject map[string]interface{}
+	Flags struct {
+		SentHelp bool
+		SentIntro bool
+	}
 }
 
 func (user *User) UserID() string {
@@ -291,18 +295,34 @@ func (client *APIClient) GetStreamEndpoint(key string) string {
 	return ""
 }
 
-func (user *User) GetInvite() (string, error) {
+func (user *User) GetInvite(email string) (string, int, error) {
 	params := map[string]string{
 		// empty post body :(
 		"foo": "bar",
 	}
 
+	if email != "" {
+		params["email"] = email
+	}
+
 	obj, err := user.Post("/stream/0/users/invite", nil, params)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	inviteURL := obj.Data.(map[string]interface{})["url"].(string)
+	remainingCount := int(obj.Data.(map[string]interface{})["remaining_count"].(float64))
 
-	return inviteURL, nil
+	return inviteURL, remainingCount, nil
+}
+
+func (user *User) GetInviteCount() (int, error) {
+	obj, err := user.Get("/stream/0/users/invite/count", nil)
+	if err != nil {
+		return 0, err
+	}
+
+	remainingCount := int(obj.Data.(map[string]interface{})["remaining_count"].(float64))
+
+	return remainingCount, nil
 }

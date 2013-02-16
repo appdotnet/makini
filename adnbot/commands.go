@@ -40,7 +40,7 @@ func formatRemainingCount(remainingCount int) string {
 }
 
 func init() {
-	listener.Register("^(?:what'?s|get )?(?:my )?invite(?: count)?\\??$", func(message *listener.BotMessage) bool {
+	listener.Register("(?i)^(?:what'?s|get )?(?:my )?invite(?: count)?\\??$", func(message *listener.BotMessage) bool {
 		remainingCount, err := message.Sender.GetInviteCount()
 		if err != nil {
 			log.Printf("Error getting invite count for %s: %s", message.Sender.Username(), err)
@@ -52,7 +52,7 @@ func init() {
 		return true
 	})
 
-	listener.Register("^(?:get|give) (?:me )?(?:an )?invite(?: .+)?$", func(message *listener.BotMessage) bool {
+	listener.Register("(?i)^(?:get|give) (?:me )?(?:an )?invite(?: .+)?$", func(message *listener.BotMessage) bool {
 		inviteURL, remainingCount, err := message.Sender.GetInvite("")
 		if err != nil {
 			log.Printf("Error getting invite for %s: %s", message.Sender.Username(), err)
@@ -73,7 +73,7 @@ func init() {
 		return true
 	})
 
-	listener.Register("^send (?:an )?invite (?:to )?(\\S+)?$", func(message *listener.BotMessage) bool {
+	listener.Register("(?i)^send (?:an )?invite (?:to )?(\\S+)?$", func(message *listener.BotMessage) bool {
 		email := message.Matches[1]
 		if !strings.Contains(email, "@") {
 			log.Printf("Invalid email from %s: %s", message.Sender.Username(), email)
@@ -102,7 +102,7 @@ func init() {
 		return true
 	})
 
-	listener.Register("^!mindblown$", func(message *listener.BotMessage) bool {
+	listener.Register("(?i)^!mindblown$", func(message *listener.BotMessage) bool {
 		body := map[string]interface{}{
 			"text":        "Mind. Blown. http://i.imgur.com/UmpOi.gif",
 			"annotations": annotation,
@@ -113,7 +113,7 @@ func init() {
 		return true
 	})
 
-	listener.Register("^help computer$", func(message *listener.BotMessage) bool {
+	listener.Register("(?i)^help computer$", func(message *listener.BotMessage) bool {
 		body := map[string]interface{}{
 			"text": "I'm a computer. Stop all the downloadin'. Err... I mean, uh, that you should probably email my human friends at support@app.net for more help.",
 		}
@@ -123,7 +123,7 @@ func init() {
 		return true
 	})
 
-	listener.Register("^help( .+)?$", func(message *listener.BotMessage) bool {
+	listener.Register("(?i)^help( .+)?$", func(message *listener.BotMessage) bool {
 		body := map[string]interface{}{
 			"text": "Try asking me to 'send invite to <email>' or 'get invite link' or ask me 'invite count?' and I'll try to help. For more complex questions, email my human friends at support@app.net.",
 		}

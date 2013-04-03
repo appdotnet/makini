@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
-	"makini/api"
-	"makini/listener"
-	"makini/stream"
+	"mxml/makini/api"
+	"mxml/makini/listener"
+	"mxml/makini/stream"
 	"net/url"
 	"os"
 )

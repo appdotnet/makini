@@ -1,0 +1,7 @@
+{
+    "key": "makini",
+    "object_types": [
+        "message"
+    ],
+    "type": "long_poll"
+}

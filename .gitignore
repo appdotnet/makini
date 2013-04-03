@@ -1,4 +1,4 @@
-config.yaml
 *.swo
 *.swp
-adnbot/adnbot
+makini
+config.json
